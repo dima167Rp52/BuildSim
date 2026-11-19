@@ -133,7 +133,61 @@ return parts.filter(p=>seenParts.has(p.id))
 let lamps=parts.filter(p=>p.type==='lamp');lamps.forEach(p=>p.lit=p.active);if(parts.some(p=>p.type==='timer'&&p.active))messages.push('таймер подаёт сигнал');if(parts.some(p=>p.type==='delay'&&p.active))messages.push('задержка завершена');
 let motors=parts.filter(p=>p.type==='motor'&&p.active);motors.forEach(m=>{let group=connectedParts(m,p=>p.type==='wire');group.filter(p=>['gear','wheel','fan','piston'].includes(p.type)).forEach(p=>p.active=true)});
 if(lamps.some(p=>p.lit))messages.push('лампа горит');if(motors.length)messages.push('мотор вращается');if(parts.some(p=>p.type==='fan'&&p.active))messages.push('вентилятор крутится');if(parts.some(p=>p.type==='piston'&&p.active))messages.push('поршень движется');
-let tanks=parts.filter(p=>p.type==='tank'),nowFlow=Date.now();for(let tank of tanks){let group=connectedParts(tank,p=>p.type==='pipe');let pump=group.find(p=>p.type==='pump'),heater=group.find(p=>p.type==='heater'),filter=group.find(p=>p.type==='filter'),valve=group.find(p=>p.type==='valve'),cup=group.find(p=>p.type==='cup');let hasWater=(tank.ingredients||[]).includes('water'),hasCoffee=(tank.ingredients||[]).includes('coffee');let pumpReady=!!(pump&&pump.on&&pump.active),heaterReady=!!(heater&&heater.active),valveOpen=!valve||valve.on;let output=hasWater&&hasCoffee?'coffee':hasWater?'water':hasCoffee?'beans':'empty';let ready=pumpReady&&heaterReady&&!!filter&&valveOpen&&output!=='empty';if(ready){tank._flowAt=tank._flowAt||nowFlow;let elapsed=nowFlow-tank._flowAt,pipes=group.filter(p=>p.type==='pipe');pipes.forEach(p=>p.fluid='empty');let distances=new Map([[tank.id,0]]),queue=[tank],cupDistance=null;while(queue.length){let cur=queue.shift(),dist=distances.get(cur.id);if(cur.type==='cup')cupDistance=dist;for(let pipe of pipes){let ids=pipe.connections||[];if(!ids.includes(cur.id))continue;pipe.fluid=elapsed>=(dist+1)*1000?(output==='beans'?'coffee':output):'empty';for(let id of ids){if(id===cur.id||distances.has(id))continue;let next=parts.find(x=>x.id===id);if(next){distances.set(id,dist+1);queue.push(next)}}}}if(cup&&cupDistance!==null&&elapsed>=cupDistance*1000)cup.liquid=output;else if(cup)cup.liquid='empty';}else{tank._flowAt=0;group.filter(p=>p.type==='pipe').forEach(p=>p.fluid='empty');if(cup)cup.liquid='empty'}if(pumpReady)pump.active=true;if(heaterReady)heater.active=true;if(ready){if(output==='coffee')messages.push('кофе поступает в чашку');else if(output==='water')messages.push('в чашку поступает горячая вода');else messages.push('в чашку поступают кофейные зёрна')}}
+let nowFlow=Date.now(),handledFilters=new Set();
+function findPipePath(from,to,pipes){
+ let queue=[from.id],previous=new Map([[from.id,null]]),via=new Map();
+ while(queue.length){
+  let id=queue.shift();
+  if(id===to.id)break;
+  for(let pipe of pipes){
+   let ids=pipe.connections||[];
+   if(ids.length!==2||!ids.includes(id))continue;
+   let nextId=ids[0]===id?ids[1]:ids[0];
+   if(previous.has(nextId))continue;
+   previous.set(nextId,id);via.set(nextId,pipe);queue.push(nextId);
+  }
+ }
+ if(!previous.has(to.id))return null;
+ let nodes=[],edges=[],at=to.id;
+ while(at!==from.id){nodes.unshift(at);edges.unshift(via.get(at));at=previous.get(at)}
+ nodes.unshift(from.id);
+ return {nodes,edges};
+}
+for(let filter of parts.filter(p=>p.type==='filter')){
+ if(handledFilters.has(filter.id))continue;
+ let group=connectedParts(filter,p=>p.type==='pipe'),pipes=group.filter(p=>p.type==='pipe');
+ let tanks=group.filter(p=>p.type==='tank');
+ let waterTank=tanks.find(t=>(t.ingredients||[]).includes('water'));
+ let coffeeTank=tanks.find(t=>(t.ingredients||[]).includes('coffee'));
+ let cup=group.find(p=>p.type==='cup'),pump=group.find(p=>p.type==='pump');
+ let heater=group.find(p=>p.type==='heater'),valve=group.find(p=>p.type==='valve');
+ let waterPath=waterTank&&findPipePath(waterTank,filter,pipes);
+ let coffeePath=coffeeTank&&findPipePath(coffeeTank,filter,pipes);
+ let outputPath=cup&&findPipePath(filter,cup,pipes);
+ let pumpReady=!!(pump&&pump.on&&pump.active),heaterReady=!!(heater&&heater.active);
+ let valveOpen=!valve||valve.on;
+ let ready=!!(waterPath&&coffeePath&&outputPath&&pumpReady&&heaterReady&&valveOpen);
+ if(ready){
+  handledFilters.add(filter.id);
+  filter._flowAt=filter._flowAt||nowFlow;
+  let elapsed=nowFlow-filter._flowAt;
+  pipes.forEach(p=>p.fluid='empty');
+  waterPath.edges.forEach((p,i)=>{if(elapsed>=(i+1)*1000)p.fluid='water'});
+  coffeePath.edges.forEach((p,i)=>{if(elapsed>=(i+1)*1000)p.fluid='coffee'});
+  let mixAt=Math.max(waterPath.edges.length,coffeePath.edges.length)*1000;
+  outputPath.edges.forEach((p,i)=>{if(elapsed>=mixAt+(i+1)*1000)p.fluid='coffee'});
+  let totalTime=mixAt+outputPath.edges.length*1000;
+  cup.liquid=elapsed>=totalTime?'coffee':'empty';
+  filter.active=true;
+  messages.push(cup.liquid==='coffee'?'кофе поступает в чашку':'вода и кофе поступают к фильтру');
+ }else{
+  filter._flowAt=0;
+  pipes.forEach(p=>p.fluid='empty');
+  if(cup)cup.liquid='empty';
+ }
+ if(pumpReady)pump.active=true;
+ if(heaterReady)heater.active=true;
+}
 if(parts.some(p=>p.type==='heater'&&p.active))messages.push('нагреватель работает от электричества');if(parts.some(p=>p.type==='filter'&&p.active))messages.push('фильтр обрабатывает жидкость');
 drawWorld();status.innerHTML=messages.length?'<strong>● Симуляция работает</strong> · '+messages.join(' · '):'⚠ Активных устройств нет. Проверь соединения проводов/труб и выключатели.'}
 let simLoop=null;function runSim(){sim=!sim;let simButton=$('simulate');if(sim){runCircuit();simLoop=setInterval(()=>{if(sim)runCircuit()},100);if(simButton)simButton.textContent='■ Остановить'}else{if(simLoop){clearInterval(simLoop);simLoop=null}parts.forEach(p=>{p.active=false;if(p.type==='lamp')p.lit=false;p._poweredAt=0});drawWorld();if(status)status.textContent='🟦 Режим сборки · Деталей: '+parts.length;if(simButton)simButton.textContent='▶ Симуляция'}}
