@@ -153,7 +153,8 @@ function findPipePath(from,to,pipes){
  nodes.unshift(from.id);
  return {nodes,edges};
 }
-for(let filter of parts.filter(p=>p.type==='filter')){
+let liquidHubs=parts.filter(p=>p.type==='filter');if(!liquidHubs.length)liquidHubs=parts.filter(p=>p.type==='pump');
+ for(let filter of liquidHubs){
  if(handledFilters.has(filter.id))continue;
  // Build the liquid network directly from every pipe edge. Do not depend on
  // connectedParts traversal, which can accidentally omit a visible branch.
@@ -169,9 +170,9 @@ for(let filter of parts.filter(p=>p.type==='filter')){
  let pumpReady=!!(pump&&pump.on&&pump.active),heaterReady=!!(heater&&heater.active),brewing=!!beansPath;
  let valveOpen=!valve||valve.on;
  let ready=!!(waterPath&&outputPath&&pumpReady&&valveOpen&&(!brewing||heaterReady));
- if(!waterPath)messages.push(!waterTank?'фильтр не видит резервуар с водой':'нет трубы от водяного резервуара к фильтру');
+ if(!waterPath)messages.push(!waterTank?'узел подачи не видит резервуар с водой':'нет трубы от водяного резервуара к насосу/фильтру');
  if(brewing&&!heaterReady)messages.push('для приготовления кофе нужен подключённый нагреватель');
- if(!outputPath)messages.push(!receiver?'не подключена чашка или кофейный блок':'нет трубы от фильтра к ёмкости');
+ if(!outputPath)messages.push(!receiver?'не подключена чашка или кофейный блок':'нет трубы от насоса/фильтра к ёмкости');
  if(!pump)messages.push('насос не подключён к жидкостной сети');
  else if(!pump.on)messages.push('насос выключен — включи его');
  else if(!pump.active)messages.push('насос не получает электричество');
