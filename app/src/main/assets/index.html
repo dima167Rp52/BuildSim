@@ -167,6 +167,15 @@ for(let filter of parts.filter(p=>p.type==='filter')){
  let pumpReady=!!(pump&&pump.on&&pump.active),heaterReady=!!(heater&&heater.active);
  let valveOpen=!valve||valve.on;
  let ready=!!(waterPath&&coffeePath&&outputPath&&pumpReady&&heaterReady&&valveOpen);
+ if(!waterPath)messages.push(!waterTank?'фильтр не видит резервуар с водой':'нет трубы от водяного резервуара к фильтру');
+ if(!coffeePath)messages.push(!coffeeTank?'фильтр не видит резервуар с кофе':'нет трубы от кофейного резервуара к фильтру');
+ if(!outputPath)messages.push(!cup?'не подключена чашка':'нет трубы от фильтра к чашке');
+ if(!pump)messages.push('насос не подключён к жидкостной сети');
+ else if(!pump.on)messages.push('насос выключен — включи его');
+ else if(!pump.active)messages.push('насос не получает электричество');
+ if(!heater)messages.push('нагреватель не подключён к жидкостной сети');
+ else if(!heater.active)messages.push('нагреватель не получает электричество');
+ if(valve&&!valveOpen)messages.push('клапан закрыт — включи его');
  if(ready){
   handledFilters.add(filter.id);
   filter._flowAt=filter._flowAt||nowFlow;
