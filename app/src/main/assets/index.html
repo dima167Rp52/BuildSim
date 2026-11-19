@@ -155,15 +155,17 @@ function findPipePath(from,to,pipes){
 }
 for(let filter of parts.filter(p=>p.type==='filter')){
  if(handledFilters.has(filter.id))continue;
- let group=connectedParts(filter,p=>p.type==='pipe'),pipes=group.filter(p=>p.type==='pipe');
- let tanks=group.filter(p=>p.type==='tank');
- let waterTank=tanks.find(t=>(t.ingredients||[]).includes('water'));
- let coffeeTank=tanks.find(t=>(t.ingredients||[]).includes('coffee'));
- let cup=group.find(p=>p.type==='cup'),pump=group.find(p=>p.type==='pump');
- let heater=group.find(p=>p.type==='heater'),valve=group.find(p=>p.type==='valve');
- let waterPath=waterTank&&findPipePath(waterTank,filter,pipes);
- let coffeePath=coffeeTank&&findPipePath(coffeeTank,filter,pipes);
- let outputPath=cup&&findPipePath(filter,cup,pipes);
+ // Build the liquid network directly from every pipe edge. Do not depend on
+ // connectedParts traversal, which can accidentally omit a visible branch.
+ let pipes=parts.filter(p=>p.type==='pipe'&&(p.connections||[]).length===2);
+ let waterOptions=parts.filter(t=>t.type==='tank'&&(t.ingredients||[]).includes('water')).map(t=>({part:t,path:findPipePath(t,filter,pipes)})).filter(x=>x.path);
+ let coffeeOptions=parts.filter(t=>t.type==='tank'&&(t.ingredients||[]).includes('coffee')).map(t=>({part:t,path:findPipePath(t,filter,pipes)})).filter(x=>x.path);
+ let cupOptions=parts.filter(p=>p.type==='cup').map(p=>({part:p,path:findPipePath(filter,p,pipes)})).filter(x=>x.path);
+ let waterTank=waterOptions[0]?.part,coffeeTank=coffeeOptions[0]?.part,cup=cupOptions[0]?.part;
+ let waterPath=waterOptions[0]?.path,coffeePath=coffeeOptions[0]?.path,outputPath=cupOptions[0]?.path;
+ let pump=parts.find(p=>p.type==='pump'&&findPipePath(p,filter,pipes));
+ let heater=parts.find(p=>p.type==='heater'&&findPipePath(p,filter,pipes));
+ let valve=parts.find(p=>p.type==='valve'&&findPipePath(filter,p,pipes));
  let pumpReady=!!(pump&&pump.on&&pump.active),heaterReady=!!(heater&&heater.active);
  let valveOpen=!valve||valve.on;
  let ready=!!(waterPath&&coffeePath&&outputPath&&pumpReady&&heaterReady&&valveOpen);
