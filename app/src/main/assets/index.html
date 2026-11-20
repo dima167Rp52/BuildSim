@@ -71,7 +71,7 @@ valve:'<path d="M12 42h76" stroke="#9aaabd" stroke-width="12"/><path d="M50 12 7
 heater:'<rect x="18" y="14" width="64" height="52" rx="9" fill="#52647b" stroke="#c2cfdd" stroke-width="3"/><path d="M32 50c-8-13 8-15 0-28m18 28c-8-13 8-15 0-28m18 28c-8-13 8-15 0-28" fill="none" stroke="#ff9d4d" stroke-width="5" stroke-linecap="round"/>',
 filter:'<path d="M20 12h60L61 39v24H39V39Z" fill="#9cb2c5" stroke="#e1eaf2" stroke-width="3"/><path d="M29 22h42M34 29h32M39 36h22" stroke="#4b6e8a" stroke-width="3"/><path d="M43 63h14" stroke="#d5e1ec" stroke-width="4"/>',
 gasator:'<rect x="17" y="17" width="66" height="48" rx="11" fill="#315d70" stroke="#9de7ef" stroke-width="3"/><path d="M27 41h12l7-12 9 24 8-12h10" fill="none" stroke="#b8f5e9" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="31" cy="25" r="4" fill="#b8f5e9"/><circle cx="69" cy="25" r="4" fill="#b8f5e9"/><path d="M50 8v9m-7-9h14" stroke="#d9faff" stroke-width="3"/>',
-coffeeDose:'<ellipse cx="50" cy="40" rx="28" ry="19" fill="#70452e" stroke="#c89b70" stroke-width="3"/><path d="M29 39q8-16 16 0t16 0t10 0" fill="none" stroke="#d9b28a" stroke-width="3"/>',waterDose:'<path d="M50 8C39 27 27 39 27 51a23 23 0 0 0 46 0C73 39 61 27 50 8Z" fill="#4bb9ed" stroke="#b8edff" stroke-width="3"/>',cup:'<path d="M20 19h52l-5 48H26Z" fill="#e4e9ef" stroke="#9eafc2" stroke-width="3"/><path d="M72 28h8q14 0 8 18-4 9-20 8" fill="none" stroke="#cbd6e1" stroke-width="6"/><path d="M25 49h42v16H27Z" fill="'+(lit==='coffee'?'#70452e':lit==='water'?'#49b9f0':lit==='sparklingWater'?'#53cbb9':lit==='beans'?'#ad8b54':'#d9e1e9')+'"/>',coffee:'<path d="M24 18h49l-5 47H30Z" fill="#b7c6d2" stroke="#e7eff6" stroke-width="3"/><path d="M73 27h8q12 0 7 15-3 8-18 7" fill="none" stroke="#dce7ef" stroke-width="5"/><path d="M31 62h35V'+(lit&&lit.level>0?String(62-Math.round(Math.min(100,lit.level)*.38)):'62')+'h-35Z" fill="'+(lit&&lit.kind==='water'?'#49b9f0':'#70452e')+'"/><path d="M38 12h22" stroke="#dce7ef" stroke-width="5"/>',
+coffeeDose:'<ellipse cx="50" cy="40" rx="28" ry="19" fill="#70452e" stroke="#c89b70" stroke-width="3"/><path d="M29 39q8-16 16 0t16 0t10 0" fill="none" stroke="#d9b28a" stroke-width="3"/>',waterDose:'<path d="M50 8C39 27 27 39 27 51a23 23 0 0 0 46 0C73 39 61 27 50 8Z" fill="#4bb9ed" stroke="#b8edff" stroke-width="3"/>',cup:'<path d="M20 19h52l-5 48H26Z" fill="#e4e9ef" stroke="#9eafc2" stroke-width="3"/><path d="M72 28h8q14 0 8 18-4 9-20 8" fill="none" stroke="#cbd6e1" stroke-width="6"/><path d="M25 49h42v16H27Z" fill="'+(lit==='coffee'?'#70452e':lit==='water'?'#49b9f0':lit==='sparklingWater'?'#53cbb9':lit==='beans'?'#ad8b54':'#d9e1e9')+'"/>',coffee:'<path d="M24 18h49l-5 47H30Z" fill="#b7c6d2" stroke="#e7eff6" stroke-width="3"/><path d="M73 27h8q12 0 7 15-3 8-18 7" fill="none" stroke="#dce7ef" stroke-width="5"/><path d="M31 62h35V'+(lit&&lit.level>0?String(62-Math.round(Math.min(100,lit.level)*.38)):'62')+'h-35Z" fill="'+(lit&&lit.kind==='water'?'#49b9f0':lit&&lit.kind==='sparklingWater'?'#53cbb9':'#70452e')+'"/><path d="M38 12h22" stroke="#dce7ef" stroke-width="5"/>',
 block:'<path d="M15 23 50 7l35 16-35 17Z" fill="#d2a66e" stroke="#f0d2a4" stroke-width="2"/><path d="M15 23v35l35 14V40Z" fill="#9d7148" stroke="#d7b183" stroke-width="2"/><path d="M85 23v35L50 72V40Z" fill="#795638" stroke="#bd9161" stroke-width="2"/>',
 panel:'<rect x="12" y="12" width="76" height="52" rx="4" fill="#385b84" stroke="#c2d4e8" stroke-width="3"/><path d="M37 12v52M63 12v52M12 38h76" stroke="#80b9ed" stroke-width="2"/><path d="M18 18h13v13H18m38-13h25v13H56" fill="#4b7eb2"/>',
 glass:'<path d="M20 10h60v56H20Z" fill="#8bd8ff" fill-opacity=".25" stroke="#bcecff" stroke-width="4"/><path d="m27 57 39-39M48 66l31-31" stroke="#e2f8ff" stroke-width="3" opacity=".8"/>',
@@ -244,8 +244,8 @@ function findPipePath(from,to,pipes){
  if(!pump)messages.push('насос не подключён к жидкостной сети');
  else if(!pump.on)messages.push('насос выключен — включи его');
  else if(!pump.active)messages.push('насос не получает электричество');
- if(!heater)messages.push('нагреватель не подключён к жидкостной сети');
- else if(!heater.active)messages.push('нагреватель не получает электричество');
+ if(brewing&&!heater)messages.push('нагреватель не подключён к жидкостной сети');
+ else if(brewing&&!heater.active)messages.push('нагреватель не получает электричество');
  if(valve&&!valveOpen)messages.push('клапан закрыт — включи его');
  if(ready){
   handledFilters.add(filter.id);
@@ -257,7 +257,7 @@ function findPipePath(from,to,pipes){
   waterPath.edges.forEach((p,i)=>{if(elapsed>=(i+1)*1000)p.fluid='water'});
   if(beansPath)beansPath.edges.forEach((p,i)=>{if(elapsed>=(i+1)*1000)p.fluid='coffee'});
   let mixAt=Math.max(waterPath.edges.length,beansPath?beansPath.edges.length:0)*1000;
-  outputPath.edges.forEach((p,i)=>{if(elapsed>=mixAt+(i+1)*1000)p.fluid='coffee'});
+  outputPath.edges.forEach((p,i)=>{if(elapsed>=mixAt+(i+1)*1000)p.fluid=brewing?'coffee':filter.type==='gasator'?'sparklingWater':'water'});
   // Every full second transfers water; beans are consumed only when brewing coffee.
   // into the selected receiving vessel, up to its 100% capacity.
   let previousTick=filter._lastTransferTick||0;
