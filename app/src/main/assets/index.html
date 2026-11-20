@@ -216,12 +216,14 @@ function findPipePath(from,to,pipes){
  nodes.unshift(from.id);
  return {nodes,edges};
 }
-let liquidHubs=parts.filter(p=>p.type==='filter');if(!liquidHubs.length)liquidHubs=parts.filter(p=>p.type==='pump');
+// Treat each connected filter as a liquid hub, but do not let an
+ // unrelated or disconnected filter suppress independent pump-only systems.
+ let pipes=parts.filter(p=>p.type==='pipe'&&(p.connections||[]).length===2);
+ let filters=parts.filter(p=>p.type==='filter'&&pipes.some(edge=>(edge.connections||[]).includes(p.id)));
+ let pumps=parts.filter(p=>p.type==='pump');
+ let liquidHubs=[...filters,...pumps.filter(pump=>!filters.some(filter=>findPipePath(pump,filter,pipes)))];
  for(let filter of liquidHubs){
  if(handledFilters.has(filter.id))continue;
- // Build the liquid network directly from every pipe edge. Do not depend on
- // connectedParts traversal, which can accidentally omit a visible branch.
- let pipes=parts.filter(p=>p.type==='pipe'&&(p.connections||[]).length===2);
  let waterOptions=parts.filter(t=>t.type==='tank'&&(t.ingredients||[]).includes('water')).map(t=>({part:t,path:findPipePath(t,filter,pipes)})).filter(x=>x.path);
  let beansOptions=parts.filter(t=>t.type==='tank'&&(t.ingredients||[]).includes('beans')).map(t=>({part:t,path:findPipePath(t,filter,pipes)})).filter(x=>x.path);
  let cupOptions=parts.filter(p=>p.type==='cup'||p.type==='coffee').map(p=>({part:p,path:findPipePath(filter,p,pipes)})).filter(x=>x.path);
@@ -247,7 +249,8 @@ let liquidHubs=parts.filter(p=>p.type==='filter');if(!liquidHubs.length)liquidHu
   filter._flowAt=filter._flowAt||nowFlow;
   let elapsed=nowFlow-filter._flowAt;
   let wholeSeconds=Math.floor(elapsed/1000);
-  pipes.forEach(p=>p.fluid='empty');
+  let networkPipes=new Set([...waterPath.edges,...(beansPath?beansPath.edges:[]),...outputPath.edges]);
+  networkPipes.forEach(p=>p.fluid='empty');
   waterPath.edges.forEach((p,i)=>{if(elapsed>=(i+1)*1000)p.fluid='water'});
   if(beansPath)beansPath.edges.forEach((p,i)=>{if(elapsed>=(i+1)*1000)p.fluid='coffee'});
   let mixAt=Math.max(waterPath.edges.length,beansPath?beansPath.edges.length:0)*1000;
@@ -261,7 +264,8 @@ let liquidHubs=parts.filter(p=>p.type==='filter');if(!liquidHubs.length)liquidHu
   let roomLeft=Math.max(0,100-(receiver.liquidLevel||0));
   let canFlow=roomLeft>0&&waterLeft>0&&(!brewing||beansLeft>0);
   if(!canFlow){
-   pipes.forEach(p=>p.fluid='empty');
+   let networkPipes=new Set([...waterPath.edges,...(beansPath?beansPath.edges:[]),...outputPath.edges]);
+   networkPipes.forEach(p=>p.fluid='empty');
    filter.active=false;
    if(roomLeft<=0)messages.push('ёмкость заполнена — подача жидкости остановлена');
    else messages.push('резервуар пуст — подача жидкости остановлена');
@@ -280,7 +284,8 @@ let liquidHubs=parts.filter(p=>p.type==='filter');if(!liquidHubs.length)liquidHu
   }
  }else{
   filter._flowAt=0;filter._lastTransferTick=0;
-  pipes.forEach(p=>p.fluid='empty');
+  let networkPipes=new Set([...(waterPath?waterPath.edges:[]),...(beansPath?beansPath.edges:[]),...(outputPath?outputPath.edges:[])]);
+  networkPipes.forEach(p=>p.fluid='empty');
   if(receiver){receiver.liquid='empty';receiver.liquidLevel=0;}
  }
  if(pumpReady)pump.active=true;
