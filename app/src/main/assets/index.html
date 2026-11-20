@@ -125,6 +125,7 @@ function getSwitcherPoweredInputs(batteries){
    for(let id of (cur.connections||[])){let next=parts.find(p=>p.id===id);if(next&&next.type!=='sideSwitcher'&&next.type!=='wire'&&next.type!=='pipe'&&!seen.has(next.id)){seen.add(next.id);queue.push(next)}}
   }
  }
+ for(let sw of parts.filter(p=>p.type==='sideSwitcher')){let inputs=powered.get(sw.id)||new Set(),controlNow=inputs.has('control');if(controlNow&&!sw._controlWasPowered)sw.selectedOutput=sw.selectedOutput==='right'?'left':'right';if(!sw.selectedOutput)sw.selectedOutput='left';sw._controlWasPowered=controlNow}
  return powered
 }
 function electricalReachable(seed,now,poweredGates,switcherInputs){
@@ -138,8 +139,7 @@ function electricalReachable(seed,now,poweredGates,switcherInputs){
   if(cur.type==='button'&&!cur.pressed)continue;
   if(cur.type==='sideSwitcher'){
    if(incomingPort!=='enable')continue;
-   let inputs=switcherInputs.get(cur.id)||new Set();
-   cur.active=true;cur.selectedOutput=inputs.has('control')?'right':'left';
+   cur.active=true;cur.selectedOutput=cur.selectedOutput||'left';
   }
   if(cur.type==='timer'||cur.type==='delay'){
    poweredGates.add(cur.id);if(!cur._poweredAt)cur._poweredAt=now;
