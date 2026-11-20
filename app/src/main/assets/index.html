@@ -292,6 +292,6 @@ let simLoop=null;function runSim(){sim=!sim;let simButton=$('simulate');if(sim){
 $('simulate').onclick=runSim;
 $('save').onclick=()=>{localStorage.setItem('buildsim-project',JSON.stringify(parts));toast('Проект сохранён на устройстве')};
 $('reset').onclick=()=>{if(confirm('Удалить все детали с поля?')){parts=[];selected=null;sim=false;if(simLoop){clearInterval(simLoop);simLoop=null}drawWorld();$('simulate').textContent='▶ Симуляция';status.textContent='🟦 Режим сборки · Поле очищено'}};
-try{let saved=JSON.parse(localStorage.getItem('buildsim-project')||'[]');if(Array.isArray(saved))parts=saved}catch(e){}
-window.addEventListener('error',e=>{let statusEl=$('status');if(statusEl)statusEl.innerHTML='<span style="color:#ff8794">Ошибка интерфейса: '+String(e.message||'неизвестная ошибка').replace(/[<>&]/g,'')+'</span>'});renderItems();drawWorld();setTimeout(()=>{ox=stage.clientWidth/2-450;oy=stage.clientHeight/2-320;drawWorld()},100);
+try{let saved=JSON.parse(localStorage.getItem('buildsim-project')||'[]');if(Array.isArray(saved))parts=saved;else startupLoadError='сохранённые данные имеют неверный формат'}catch(e){startupLoadError=String(e&&e.message||e)}
+window.addEventListener('error',e=>{let statusEl=$('status');if(statusEl)statusEl.innerHTML='<span style="color:#ff8794">Ошибка интерфейса: '+String(e.message||'неизвестная ошибка').replace(/[<>&]/g,'')+'</span>'});renderItems();drawWorld();setTimeout(()=>{ox=stage.clientWidth/2-450;oy=stage.clientHeight/2-320;drawWorld()},100);setTimeout(runStartupDiagnostics,180);
 </script></body></html>
