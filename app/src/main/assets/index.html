@@ -106,6 +106,8 @@ function getSwitcherPoweredInputs(batteries){
   let seen=new Set([battery.id]),queue=[battery];
   while(queue.length){
    let cur=queue.shift();
+   if(cur.type==='switch'&&!cur.on)continue;
+   if(cur.type==='fluidSensor'&&!cur.active)continue;
    for(let link of parts){
     if(link.type!=='wire')continue;
     let ids=link.connections||[];
