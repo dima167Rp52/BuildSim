@@ -100,35 +100,37 @@ document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>setCategory(b.dataset
 $('zoomIn').onclick=()=>{scale=Math.min(1.8,scale*1.15);drawWorld()};$('zoomOut').onclick=()=>{scale=Math.max(.25,scale/1.15);drawWorld()};
 function connectedParts(seed,allowed){let seen=new Set([seed.id]),queue=[seed];while(queue.length){let cur=queue.shift();for(let link of parts){if(!allowed(link))continue;let ids=link.connections||[];if(ids.includes(cur.id)){for(let id of ids){let next=parts.find(p=>p.id===id);if(next&&!seen.has(next.id)){seen.add(next.id);queue.push(next)}}}}for(let id of (cur.connections||[])){let next=parts.find(p=>p.id===id);if(next&&!seen.has(next.id)){seen.add(next.id);queue.push(next)}}}return parts.filter(p=>seen.has(p.id))}
 function electricalReachable(seed,now,poweredGates){
-let seenStates=new Set(),seenParts=new Set([seed.id]),queue=[{part:seed,incomingWire:null}];
-while(queue.length){
-let state=queue.shift(),cur=state.part,incomingWire=state.incomingWire;
-let stateKey=String(cur.id)+'|'+String(incomingWire===null?'start':incomingWire);
-if(seenStates.has(stateKey))continue;seenStates.add(stateKey);
-if(cur.type==='switch'&&!cur.on)continue;if(cur.type==='fluidSensor'&&!cur.active)continue;
-if(cur.type==='timer'||cur.type==='delay'){
-poweredGates.add(cur.id);
-if(!cur._poweredAt)cur._poweredAt=now;
-let elapsed=now-cur._poweredAt,period=Math.max(100,(Number(cur.timeSec)||2)*1000);
-cur.active=cur.type==='timer'?(Math.floor(elapsed/period)%2===0):(elapsed>=period);
-if(!cur.active)continue;
-}
-for(let wire of parts){
-if(wire.type!=='wire')continue;
-let ids=wire.connections||[];
-if(!ids.includes(cur.id)||wire.id===incomingWire)continue;
-for(let id of ids){
-if(id===cur.id)continue;
-let next=parts.find(p=>p.id===id);
-if(next){seenParts.add(next.id);queue.push({part:next,incomingWire:wire.id})}
-}
-}
-for(let id of (cur.connections||[])){
-let next=parts.find(p=>p.id===id);
-if(next){seenParts.add(next.id);queue.push({part:next,incomingWire:null})}
-}
-}
-return parts.filter(p=>seenParts.has(p.id))
+ let seenStates=new Set(),seenParts=new Set([seed.id]),queue=[{part:seed,incomingWire:null}];
+ while(queue.length){
+  let state=queue.shift(),cur=state.part,incomingWire=state.incomingWire;
+  let stateKey=String(cur.id)+'|'+String(incomingWire===null?'start':incomingWire);
+  if(seenStates.has(stateKey))continue;
+  seenStates.add(stateKey);
+  if(cur.type==='switch'&&!cur.on)continue;
+  if(cur.type==='fluidSensor'&&!cur.active)continue;
+  if(cur.type==='timer'||cur.type==='delay'){
+   poweredGates.add(cur.id);
+   if(!cur._poweredAt)cur._poweredAt=now;
+   let elapsed=now-cur._poweredAt,period=Math.max(100,(Number(cur.timeSec)||2)*1000);
+   cur.active=cur.type==='timer'?(Math.floor(elapsed/period)%2===0):(elapsed>=period);
+   if(!cur.active)continue;
+  }
+  for(let link of parts){
+   if(link.type!=='wire')continue;
+   let ids=link.connections||[];
+   if(ids.length!==2||!ids.includes(cur.id)||link.id===incomingWire)continue;
+   let nextId=ids[0]===cur.id?ids[1]:ids[0];
+   let next=parts.find(p=>p.id===nextId);
+   if(next){seenParts.add(next.id);queue.push({part:next,incomingWire:link.id})}
+  }
+  for(let id of (cur.connections||[])){
+   let next=parts.find(p=>p.id===id);
+   if(next&&next.type!=='pipe'&&next.type!=='wire'&&!seenParts.has(next.id)){
+    seenParts.add(next.id);queue.push({part:next,incomingWire:null});
+   }
+  }
+ }
+ return parts.filter(p=>seenParts.has(p.id))
 }function runCircuit(){parts.forEach(p=>p.active=false);let messages=[];let earlyPipes=parts.filter(p=>p.type==='pipe'&&(p.connections||[]).length===2);function earlyPipePath(from,to){let q=[from.id],prev=new Set(q);while(q.length){let id=q.shift();if(id===to.id)return true;for(let e of earlyPipes){let c=e.connections||[];if(c.includes(id)){let n=c[0]===id?c[1]:c[0];if(!prev.has(n)){prev.add(n);q.push(n)}}}}return false}for(let sensor of parts.filter(p=>p.type==='fluidSensor')){let target=parts.find(p=>(p.type==='cup'||p.type==='coffee')&&earlyPipePath(sensor,p));sensor.active=!!(target&&(target.liquidLevel||0)>=(sensor.threshold??100))}let batteries=parts.filter(p=>p.type==='battery');let now=Date.now(),poweredGates=new Set();for(let battery of batteries){let group=electricalReachable(battery,now,poweredGates);group.filter(p=>['lamp','motor','fan','piston','chip','sensor','pump','heater'].includes(p.type)).forEach(p=>p.active=true)}parts.filter(p=>(p.type==='timer'||p.type==='delay')&&!poweredGates.has(p.id)).forEach(p=>p._poweredAt=0);
 let lamps=parts.filter(p=>p.type==='lamp');lamps.forEach(p=>p.lit=p.active);if(parts.some(p=>p.type==='timer'&&p.active))messages.push('таймер подаёт сигнал');if(parts.some(p=>p.type==='delay'&&p.active))messages.push('задержка завершена');
 let motors=parts.filter(p=>p.type==='motor'&&p.active);motors.forEach(m=>{let group=connectedParts(m,p=>p.type==='wire');group.filter(p=>['gear','wheel','fan','piston'].includes(p.type)).forEach(p=>p.active=true)});
@@ -223,7 +225,7 @@ let liquidHubs=parts.filter(p=>p.type==='filter');if(!liquidHubs.length)liquidHu
  if(pumpReady)pump.active=true;
  if(heaterReady)heater.active=true;
 }
-if(parts.some(p=>p.type==='heater'&&p.active))messages.push('нагреватель работает от электричества');if(parts.some(p=>p.type==='filter'&&p.active))messages.push('фильтр обрабатывает жидкость');if(parts.some(p=>p.type==='fluidSensor'&&p.active))messages.push('датчик уровня жидкости сработал');
+if(parts.some(p=>p.type==='heater'&&p.active))messages.push('нагреватель работает от электричества');if(parts.some(p=>p.type==='filter'&&p.active))messages.push('фильтр обрабатывает жидкость');for(let sensor of parts.filter(p=>p.type==='fluidSensor')){let target=parts.find(p=>(p.type==='cup'||p.type==='coffee')&&earlyPipePath(sensor,p));let level=target?(target.liquidLevel||0):0;messages.push(target?(sensor.active?'датчик жидкости: '+level+'% — сигнал разрешён':'датчик жидкости: '+level+'% / '+(sensor.threshold??100)+'% — сигнал закрыт'):'датчик жидкости: нет соединения с чашкой по трубам')}
 drawWorld();status.innerHTML=messages.length?'<strong>● Симуляция работает</strong> · '+messages.join(' · '):'⚠ Активных устройств нет. Проверь соединения проводов/труб и выключатели.'}
 let simLoop=null;function runSim(){sim=!sim;let simButton=$('simulate');if(sim){runCircuit();simLoop=setInterval(()=>{if(sim)runCircuit()},100);if(simButton)simButton.textContent='■ Остановить'}else{if(simLoop){clearInterval(simLoop);simLoop=null}parts.forEach(p=>{p.active=false;if(p.type==='lamp')p.lit=false;p._poweredAt=0});drawWorld();if(status)status.textContent='🟦 Режим сборки · Деталей: '+parts.length;if(simButton)simButton.textContent='▶ Симуляция'}}
 $('simulate').onclick=runSim;
