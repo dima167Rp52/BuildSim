@@ -4,6 +4,7 @@
 
 ## Version 0.2.0
 
+- **Liquid mixing system:** new ingredients (syrup, milk, juice concentrate), powered two-input mixer, adjustable input ratio, and recipes for lemonade, milk drink, milkshake, and juice.
 - **Realistic liquid controls:** configurable pump flow and pressure, pipe diameter, valve opening, pressure loss, heater target temperature, and liquid temperature/pressure readings.
 - **New electronics:** LED, buzzer, digital display, pulse counter, relay, temperature sensor, pressure sensor, comparator, and control panel.
 - **Project manager:** create, open, rename, and delete multiple projects; import/export projects as JSON; migrate the previous single-save project automatically.
