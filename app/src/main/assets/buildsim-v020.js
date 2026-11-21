@@ -244,4 +244,60 @@ drawWorld=function(){
 };
 const labelsForLiquid={water:'вода',beans:'зёрна',syrup:'сироп',milk:'молоко',juiceBase:'концентрат сока'};
 
+}
+/* Liquid rendering fix: show every liquid's color in pipes, tanks and cups. */
+const visualSVGBeforeLiquidFix=visualSVG;
+const liquidPalette={
+ water:'#39c8ff',syrup:'#d58a24',milk:'#f4eee0',juiceBase:'#ff9135',
+ lemonade:'#f1ce3d',milkDrink:'#eee2c7',milkshake:'#d7b58b',juice:'#ff8628',
+ sparklingWater:'#53d6c2',coffee:'#87502f',beans:'#a86a3d'
+};
+visualSVG=function(type,lit,label){
+ if(type==='cup'||type==='coffee'){
+  const kind=lit&&typeof lit==='object'?(lit.kind||'empty'):(typeof lit==='string'?lit:'empty');
+  const level=Math.max(0,Math.min(100,Number(lit&&typeof lit==='object'?lit.level:0)||0));
+  const fill=liquidPalette[kind]||'#49b9f0';
+  let liquid='';
+  if(level>0){
+   const ratio=level/100,top=64-42*ratio,left=30-6*ratio,right=63+5*ratio;
+   liquid='<path d="M'+left.toFixed(1)+' '+top.toFixed(1)+' Q46 '+(top-2.5).toFixed(1)+' '+right.toFixed(1)+' '+top.toFixed(1)+' L63 64 H30 Z" fill="'+fill+'" opacity=".96"/><path d="M'+(left+4).toFixed(1)+' '+(top+5).toFixed(1)+' Q45 '+(top+2).toFixed(1)+' '+(right-4).toFixed(1)+' '+(top+5).toFixed(1)+'" fill="none" stroke="#ffffff" stroke-opacity=".35" stroke-width="2"/>';
+  }
+  return '<svg viewBox="0 0 100 76" xmlns="http://www.w3.org/2000/svg"><path d="M20 16h52l-6 52H27Z" fill="#e4e9ef" fill-opacity=".88" stroke="#9eafc2" stroke-width="3"/>'+liquid+'<path d="M72 25h8q14 0 8 18-4 9-20 8" fill="none" stroke="#cbd6e1" stroke-width="6"/><path d="M25 20h42" stroke="#ffffff" stroke-opacity=".6" stroke-width="2"/></svg>';
+ }
+ if(type==='tank'){
+  const kind=lit&&typeof lit==='object'?(lit.kind||'water'):'water';
+  const level=Math.max(0,Math.min(100,Number(lit&&typeof lit==='object'?lit.level:100)||0));
+  const fill=liquidPalette[kind]||'#39aee8',top=66-49*level/100;
+  return '<svg viewBox="0 0 100 76" xmlns="http://www.w3.org/2000/svg"><rect x="24" y="10" width="52" height="58" rx="13" fill="#68a9c7" fill-opacity=".32" stroke="#c3e8f8" stroke-width="3"/>'+(level>0?'<path d="M28 '+top.toFixed(1)+' Q50 '+(top-3).toFixed(1)+' 72 '+top.toFixed(1)+' V64 Q72 66 68 66 H32 Q28 66 28 64Z" fill="'+fill+'" opacity=".92"/>':'')+'<path d="M35 10V5h30v5M34 17v40" stroke="#e8f8ff" stroke-opacity=".65" stroke-width="3" fill="none"/></svg>';
+ }
+ return visualSVGBeforeLiquidFix(type,lit,label);
+};
+const drawWorldBeforeLiquidFix=drawWorld;
+drawWorld=function(){
+ drawWorldBeforeLiquidFix();
+ const svg=world.querySelector('svg');
+ if(!svg)return;
+ const edges=parts.filter(p=>(p.type==='wire'||p.type==='pipe'||p.type==='motor')&&p.connections&&p.connections.length===2);
+ const lines=svg.querySelectorAll('line');
+ lines.forEach((line,index)=>{
+  const edge=edges[index];
+  if(!edge||edge.type!=='pipe')return;
+  const key=edge.fluid||'empty';
+  if(key!=='empty'){
+   const color=liquidPalette[key]||'#55bde8';
+   line.style.stroke=color;
+   line.style.color=color;
+   line.style.strokeWidth='14';
+   line.style.filter='drop-shadow(0 0 7px '+color+'99)';
+   line.classList.add('flowing');
+  }else{
+   line.style.stroke='#8793a3';
+   line.style.color='#8793a3';
+   line.style.strokeWidth='12';
+   line.style.filter='drop-shadow(0 0 2px #8793a388)';
+   line.classList.remove('flowing');
+  }
+ });
+};
+
 })();
