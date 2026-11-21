@@ -8,6 +8,7 @@
 - **Realistic liquid controls:** configurable pump flow and pressure, pipe diameter, valve opening, pressure loss, heater target temperature, and liquid temperature/pressure readings.
 - **New electronics:** LED, buzzer, digital display, pulse counter, relay, temperature sensor, pressure sensor, comparator, and control panel.
 - **Project manager:** create, open, rename, and delete multiple projects; import/export projects as JSON; migrate the previous single-save project automatically.
+- Liquid rendering: distinct colors for every liquid in pipes and tanks, plus visible liquid fill levels in cups.
 - Existing circuits, parts, and the original saved project are retained.
 
 ## Build APK
