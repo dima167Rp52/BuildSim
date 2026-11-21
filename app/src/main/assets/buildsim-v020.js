@@ -98,8 +98,7 @@ const tag=document.querySelector('.tag');if(tag)tag.textContent='СТРОЙ • 
 window.addEventListener('beforeunload',persist);
 
 /* BuildSim 0.2.0 — real two-input liquid mixer and new liquid ingredients. */
-catalog.pipes.push(['🍯','Сироп (залить)','syrupDose'],['🥛','Молоко (залить)','milkDose'],['🍊','Концентрат сока','juiceDose']);
-device.innerHTML+='<label id="mixerRatioField" style="display:none;align-items:center;gap:5px">Доля первого входа, % <input id="mixerRatio" type="number" min="0" max="100" step="5" value="50"></label>';
+device.insertAdjacentHTML('beforeend','<label id="mixerRatioField" style="display:none;align-items:center;gap:5px">Доля первого входа, % <input id="mixerRatio" type="number" min="0" max="100" step="5" value="50"></label>');
 const previousUpdateProps=updateProps;
 updateProps=function(){
  previousUpdateProps();
