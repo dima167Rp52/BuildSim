@@ -109,7 +109,7 @@ function getSwitcherPoweredInputs(batteries){
    let cur=queue.shift();
    if(cur.type==='switch'&&!cur.on)continue;
    if(cur.type==='fluidSensor'&&!cur.active)continue;
-   if(cur.type==='button'&&!cur.pressed)continue;
+   if(cur.type==='button'&&!cur.pressed)continue;if(cur.type==='controlPanel'&&!cur.on)continue;if(cur.type==='relay'&&!cur.on)continue;if(cur.type==='comparator'&&!cur.outputState)continue;
    for(let link of parts){
     if(link.type!=='wire')continue;
     let ids=link.connections||[];
