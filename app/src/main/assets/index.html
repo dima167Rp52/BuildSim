@@ -223,7 +223,7 @@ function findPipePath(from,to,pipes){
  let filters=parts.filter(p=>p.type==='filter'&&pipes.some(edge=>(edge.connections||[]).includes(p.id)));
  let gasators=parts.filter(p=>p.type==='gasator'&&pipes.some(edge=>(edge.connections||[]).includes(p.id)));
  let pumps=parts.filter(p=>p.type==='pump');
- let liquidHubs=[...filters,...gasators,...pumps.filter(pump=>!filters.some(hub=>findPipePath(pump,hub,pipes))&&!gasators.some(hub=>findPipePath(pump,hub,pipes)))];
+ let liquidHubs=[...filters,...gasators,...pumps.filter(pump=>!filters.some(hub=>findPipePath(pump,hub,pipes))&&!gasators.some(hub=>findPipePath(pump,hub,pipes))&&!parts.some(m=>m.type==='mixer'&&findPipePath(pump,m,pipes)))];
  for(let filter of liquidHubs){
  if(handledFilters.has(filter.id))continue;
  let waterOptions=parts.filter(t=>t.type==='tank'&&(t.ingredients||[]).includes('water')).map(t=>({part:t,path:findPipePath(t,filter,pipes)})).filter(x=>x.path);
