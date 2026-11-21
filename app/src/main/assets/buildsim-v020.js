@@ -96,4 +96,153 @@ const oldReset=$('reset').onclick;$('reset').onclick=()=>{oldReset();queueSave()
 migrate();renderItems();drawWorld();
 const tag=document.querySelector('.tag');if(tag)tag.textContent='СТРОЙ • ПРОВЕРЯЙ • СОЗДАВАЙ · 0.2.0';
 window.addEventListener('beforeunload',persist);
+
+/* BuildSim 0.2.0 — real two-input liquid mixer and new liquid ingredients. */
+catalog.pipes.push(['🍯','Сироп (залить)','syrupDose'],['🥛','Молоко (залить)','milkDose'],['🍊','Концентрат сока','juiceDose']);
+device.innerHTML+='<label id="mixerRatioField" style="display:none;align-items:center;gap:5px">Доля первого входа, % <input id="mixerRatio" type="number" min="0" max="100" step="5" value="50"></label>';
+const previousUpdateProps=updateProps;
+updateProps=function(){
+ previousUpdateProps();
+ const p=parts.find(x=>x.id===selected);
+ $('mixerRatioField').style.display=p&&p.type==='mixer'?'flex':'none';
+ if(p&&p.type==='mixer')$('mixerRatio').value=p.ratioA??50;
+};
+$('mixerRatio').onchange=e=>{
+ const p=parts.find(x=>x.id===selected);
+ if(!p||p.type!=='mixer')return;
+ p.ratioA=Math.max(0,Math.min(100,Number(e.target.value)||0));
+ e.target.value=p.ratioA;
+ queueSave();
+ toast('Пропорция установлена: '+p.ratioA+' / '+(100-p.ratioA));
+};
+const previousAddPart=addPart;
+addPart=function(x,y){
+ previousAddPart(x,y);
+ const p=parts.find(q=>q.id===selected);
+ if(p&&p.type==='mixer'){p.ratioA=50;p._mixFlowAt=0;p._mixLastTick=0;queueSave()}
+};
+const previousPartDown=partDown;
+partDown=function(e,p){
+ if(fillMode&&p.type==='tank'&&['syrup','milk','juiceBase'].includes(fillMode)){
+  p.ingredients=p.ingredients||[];p.levels=p.levels||{};
+  if(!p.ingredients.includes(fillMode))p.ingredients.push(fillMode);
+  p.levels[fillMode]=100;
+  const label={syrup:'сироп',milk:'молоко',juiceBase:'концентрат сока'}[fillMode];
+  fillMode=null;toast(label+' добавлен в резервуар');drawWorld();queueSave();return;
+ }
+ previousPartDown(e,p);
+};
+function mixerPath(from,to,pipes){
+ const queue=[from.id],prev=new Map([[from.id,null]]),via=new Map();
+ while(queue.length){
+  const id=queue.shift();if(id===to.id)break;
+  for(const edge of pipes){
+   const ids=edge.connections||[];
+   if(ids.length!==2||!ids.includes(id))continue;
+   const next=ids[0]===id?ids[1]:ids[0];
+   if(prev.has(next))continue;
+   prev.set(next,id);via.set(next,edge);queue.push(next);
+  }
+ }
+ if(!prev.has(to.id))return null;
+ const edges=[];let at=to.id;
+ while(at!==from.id){edges.unshift(via.get(at));at=prev.get(at)}
+ return {edges};
+}
+const previousRunCircuit=runCircuit;
+runCircuit=function(){
+ previousRunCircuit();
+ const pipes=parts.filter(p=>p.type==='pipe'&&(p.connections||[]).length===2);
+ const mixers=parts.filter(p=>p.type==='mixer');
+ const labels={water:'вода',syrup:'сироп',milk:'молоко',juiceBase:'концентрат сока'};
+ const products={
+  'syrup|water':{id:'lemonade',name:'лимонад'},
+  'milk|water':{id:'milkDrink',name:'молочный напиток'},
+  'milk|syrup':{id:'milkshake',name:'молочный коктейль'},
+  'juiceBase|water':{id:'juice',name:'сок'}
+ };
+ const now=Date.now(),notes=[];
+ for(const mixer of mixers){
+  const inputTanks=parts.filter(t=>t.type==='tank'&&(t.ingredients||[]).some(k=>labels[k]));
+  const candidates=inputTanks.map(t=>{
+   const key=(t.ingredients||[]).find(k=>labels[k]&&(t.levels||{})[k]>0);
+   return {tank:t,key,path:mixerPath(t,mixer,pipes)};
+  }).filter(x=>x.key&&x.path);
+  let pair=null;
+  for(let i=0;i<candidates.length&&!pair;i++)for(let k=i+1;k<candidates.length;k++){
+   if(candidates[i].key!==candidates[k].key){
+    const recipeKey=[candidates[i].key,candidates[k].key].sort().join('|');
+    if(products[recipeKey]){pair=[candidates[i],candidates[k]];break}
+   }
+  }
+  const outputs=parts.filter(p=>p.type==='cup'||p.type==='coffee').map(p=>({part:p,path:mixerPath(mixer,p,pipes)})).filter(x=>x.path);
+  const receiver=outputs[0]?.part,outputPath=outputs[0]?.path;
+  const pump=parts.find(p=>p.type==='pump'&&mixerPath(p,mixer,pipes));
+  const valve=parts.find(p=>p.type==='valve'&&mixerPath(mixer,p,pipes));
+  const ready=!!(pair&&receiver&&outputPath&&pump&&pump.on&&pump.active&&mixer.active&&(!valve||valve.on));
+  if(!ready){
+   mixer._mixFlowAt=0;mixer._mixLastTick=0;
+   for(const edge of pipes)if((edge.connections||[]).includes(mixer.id))edge.fluid='empty';
+   if(!pair)notes.push('смеситель: подключи два резервуара с разными жидкостями (вода, сироп, молоко или концентрат сока)');
+   else if(!receiver)notes.push('смеситель: подключи чашку или кофейный блок к выходу');
+   else if(!pump||!pump.on||!pump.active)notes.push('смеситель: нужен включённый насос с электричеством');
+   else if(!mixer.active)notes.push('смеситель не получает электричество');
+   else if(valve&&!valve.on)notes.push('смеситель: открой клапан');
+   continue;
+  }
+  const [a,b]=pair,recipeKey=[a.key,b.key].sort().join('|'),recipe=products[recipeKey];
+  const ratio=Math.max(0,Math.min(100,Number(mixer.ratioA??50)))/100;
+  const ratioA=ratio,ratioB=1-ratio;
+  mixer._mixFlowAt=mixer._mixFlowAt||now;
+  const seconds=Math.floor((now-mixer._mixFlowAt)/1000),last=mixer._mixLastTick||0,ticks=Math.max(0,seconds-last);
+  const leftA=Math.max(0,Number(a.tank.levels?.[a.key]||0)),leftB=Math.max(0,Number(b.tank.levels?.[b.key]||0));
+  const room=Math.max(0,100-Number(receiver.liquidLevel||0));
+  const rate=Math.max(.1,Math.min(20,Number(pump.calculatedFlow??pump.flowRate??5)));
+  const maxA=ratioA>0?leftA/ratioA:Infinity,maxB=ratioB>0?leftB/ratioB:Infinity;
+  const canMove=Math.min(rate*ticks,room,maxA,maxB);
+  if(ticks>0&&canMove>0){
+   a.tank.levels[a.key]=Math.max(0,leftA-canMove*ratioA);
+   b.tank.levels[b.key]=Math.max(0,leftB-canMove*ratioB);
+   receiver.liquid=recipe.id;receiver.liquidLevel=Math.min(100,Number(receiver.liquidLevel||0)+canMove);
+   receiver.temperatureC=20;receiver.mixture={first:a.key,second:b.key,ratioA:Math.round(ratioA*100),ratioB:Math.round(ratioB*100)};
+   mixer._mixLastTick=seconds;
+  }
+  a.path.edges.forEach(edge=>edge.fluid=a.key);
+  b.path.edges.forEach(edge=>edge.fluid=b.key);
+  outputPath.edges.forEach(edge=>edge.fluid=recipe.id);
+  mixer.active=true;
+  notes.push('смеситель: '+labels[a.key]+' + '+labels[b.key]+' → '+recipe.name+' ('+Math.round(ratioA*100)+'/'+Math.round(ratioB*100)+')');
+  if(room<=0)notes.push('чашка заполнена — смешивание остановлено');
+  if(leftA<=0||leftB<=0)notes.push('один из резервуаров пуст');
+ }
+ if(notes.length){
+  status.innerHTML+='<br><span style="color:#8ee7ff">'+notes.join(' · ')+'</span>';
+  drawWorld();
+ }
+};
+const previousDrawWorld=drawWorld;
+drawWorld=function(){
+ previousDrawWorld();
+ if(!ready)return;
+ parts.forEach(p=>{
+  const el=world.querySelector('[data-id="'+p.id+'"]');if(!el)return;
+  const info=el.querySelector('.part-info');
+  if(p.type==='mixer'){
+   const small=document.createElement('small');small.className='part-info';
+   small.textContent=' '+(p.ratioA??50)+'/'+(100-(p.ratioA??50))+'%';
+   el.appendChild(small);
+  }
+  if(p.type==='tank'&&p.ingredients?.length){
+   const small=el.querySelector('small');
+   if(small)small.textContent=p.name+' · '+p.ingredients.map(k=>(labelsForLiquid[k]||k)+' '+Math.round(p.levels?.[k]??100)+'%').join(' + ');
+  }
+  if((p.type==='cup'||p.type==='coffee')&&p.liquidLevel>0){
+   const small=el.querySelector('small');
+   const liquidNames={lemonade:'лимонад',milkDrink:'молочный напиток',milkshake:'молочный коктейль',juice:'сок',sparklingWater:'газ. вода',water:'вода',coffee:'кофе'};
+   if(small)small.textContent=p.name+' · '+(liquidNames[p.liquid]||p.liquid||'жидкость')+' '+Math.round(p.liquidLevel)+'%';
+  }
+ });
+};
+const labelsForLiquid={water:'вода',beans:'зёрна',syrup:'сироп',milk:'молоко',juiceBase:'концентрат сока'};
+
 })();
