@@ -244,7 +244,7 @@ drawWorld=function(){
 };
 const labelsForLiquid={water:'вода',beans:'зёрна',syrup:'сироп',milk:'молоко',juiceBase:'концентрат сока'};
 
-}/* Liquid rendering fix: show every liquid's color in pipes, tanks and cups. */
+/* Liquid rendering fix: show every liquid's color in pipes, tanks and cups. */
 const visualSVGBeforeLiquidFix=visualSVG;
 const liquidPalette={
  water:'#39c8ff',syrup:'#d58a24',milk:'#f4eee0',juiceBase:'#ff9135',
