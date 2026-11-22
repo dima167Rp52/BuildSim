@@ -144,9 +144,9 @@ function mixerPath(from,to,pipes){
   }
  }
  if(!prev.has(to.id))return null;
- const edges=[];let at=to.id;
- while(at!==from.id){edges.unshift(via.get(at));at=prev.get(at)}
- return {edges};
+ const edges=[],nodes=[to];let at=to.id;
+ while(at!==from.id){edges.unshift(via.get(at));at=prev.get(at);nodes.unshift(parts.find(p=>p.id===at))}
+ return {edges,nodes:nodes.filter(Boolean)};
 }
 const previousRunCircuit=runCircuit;
 runCircuit=function(){
@@ -176,15 +176,19 @@ runCircuit=function(){
   }
   const outputs=parts.filter(p=>p.type==='cup'||p.type==='coffee').map(p=>({part:p,path:mixerPath(mixer,p,pipes)})).filter(x=>x.path);
   const receiver=outputs[0]?.part,outputPath=outputs[0]?.path;
-  const pump=parts.find(p=>p.type==='pump'&&mixerPath(p,mixer,pipes));
+  // Each ingredient must have its own powered pump somewhere on its tank-to-mixer route.
+  const pumpA=pair?.[0].path.nodes.find(p=>p.type==='pump');
+  const pumpB=pair?.[1].path.nodes.find(p=>p.type==='pump');
+  const pumpsReady=!!(pumpA&&pumpA.on&&pumpA.active&&pumpB&&pumpB.on&&pumpB.active);
+  const pump=pumpA&&pumpB?{calculatedFlow:Math.min(Number(pumpA.calculatedFlow??pumpA.flowRate??5),Number(pumpB.calculatedFlow??pumpB.flowRate??5))}:null;
   const valve=parts.find(p=>p.type==='valve'&&mixerPath(mixer,p,pipes));
-  const ready=!!(pair&&receiver&&outputPath&&pump&&pump.on&&pump.active&&mixer.active&&(!valve||valve.on));
+  const ready=!!(pair&&receiver&&outputPath&&pumpsReady&&mixer.active&&(!valve||valve.on));
   if(!ready){
    mixer._mixFlowAt=0;mixer._mixLastTick=0;
    for(const edge of pipes)if((edge.connections||[]).includes(mixer.id))edge.fluid='empty';
    if(!pair)notes.push('смеситель: подключи два резервуара с разными жидкостями (вода, сироп, молоко или концентрат сока)');
    else if(!receiver)notes.push('смеситель: подключи чашку или кофейный блок к выходу');
-   else if(!pump||!pump.on||!pump.active)notes.push('смеситель: нужен включённый насос с электричеством');
+   else if(!pumpsReady)notes.push('смеситель: нужны два включённых насоса с электричеством — по одному на каждую линию ингредиента');
    else if(!mixer.active)notes.push('смеситель не получает электричество');
    else if(valve&&!valve.on)notes.push('смеситель: открой клапан');
    continue;
@@ -196,7 +200,7 @@ runCircuit=function(){
   const seconds=Math.floor((now-mixer._mixFlowAt)/1000),last=mixer._mixLastTick||0,ticks=Math.max(0,seconds-last);
   const leftA=Math.max(0,Number(a.tank.levels?.[a.key]||0)),leftB=Math.max(0,Number(b.tank.levels?.[b.key]||0));
   const room=Math.max(0,100-Number(receiver.liquidLevel||0));
-  const rate=Math.max(.1,Math.min(20,Number(pump.calculatedFlow??pump.flowRate??5)));
+  const rate=Math.max(.1,Math.min(20,Number(pump?.calculatedFlow??5)));
   const maxA=ratioA>0?leftA/ratioA:Infinity,maxB=ratioB>0?leftB/ratioB:Infinity;
   const canMove=Math.min(rate*ticks,room,maxA,maxB);
   if(ticks>0&&canMove>0){
