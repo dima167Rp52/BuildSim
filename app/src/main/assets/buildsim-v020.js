@@ -57,7 +57,7 @@ $('deviceToggle').onclick=()=>edit(p=>p.on=!p.on);
 const oldAddPart=addPart;
 addPart=function(x,y){oldAddPart(x,y);const p=parts.find(q=>q.id===selected);if(!p)return;if(p.type==='pump'){p.flowRate=5;p.pressureBar=2}if(p.type==='pipe')p.diameterMm=20;if(p.type==='valve')p.openPercent=100;if(p.type==='heater')p.targetTempC=80;if(p.type==='temperatureSensor')p.threshold=50;if(p.type==='pressureSensor')p.threshold=1;if(p.type==='comparator')p.threshold=50;if(p.type==='digitalDisplay')p.displayText='BUILD SIM';if(p.type==='counter')p.count=0;if(p.type==='controlPanel'||p.type==='relay')p.on=false;queueSave()};
 const oldDrawWorld=drawWorld;
-drawWorld=function(){parts.forEach(p=>{if(p.type==='digitalDisplay')p.text=p.displayText||'BUILD SIM';if(p.type==='counter')p.text=String(p.count||0)});oldDrawWorld();if(ready){parts.forEach(p=>{const el=world.querySelector('[data-id="'+p.id+'"]');if(!el)return;let info='';if(p.type==='pump')info=' '+Number(p.calculatedPressureBar??p.pressureBar??2).toFixed(1)+' бар · '+Number(p.calculatedFlow??p.flowRate??5).toFixed(1)+'%/с';if(p.type==='pipe')info=' Ø'+(p.diameterMm??20)+' мм';if(p.type==='valve')info=' '+(p.openPercent??100)+'% открыт';if(p.type==='heater')info=' '+(p.targetTempC??80)+'°C';if(['cup','coffee','tank'].includes(p.type)&&p.temperatureC!=null)info=' '+Math.round(p.temperatureC)+'°C';if(['cup','coffee'].includes(p.type)&&p.pressureBar!=null)info+=' · '+Number(p.pressureBar).toFixed(1)+' бар';if(p.type==='digitalDisplay')info=' '+(p.displayText||'');if(p.type==='counter')info=' '+(p.count||0);if(['temperatureSensor','thermometer'].includes(p.type))info=' '+Math.round(p.readingC??20)+'°C';if(['pressureSensor','pressureGauge'].includes(p.type))info=' '+Number(p.readingBar??0).toFixed(2)+' бар';if(p.type==='comparator')info=' '+(p.outputState?'ВЫСОКИЙ':'НИЗКИЙ');if(info){const small=document.createElement('small');small.className='part-info';small.textContent=info;el.appendChild(small)}});queueSave()}};
+drawWorld=function(){parts.forEach(p=>{if(p.type==='digitalDisplay')p.text=p.displayText||'BUILD SIM';if(p.type==='counter')p.text=String(p.count||0)});oldDrawWorld();if(ready){const elementById=new Map(Array.from(world.querySelectorAll('.part'),el=>[el.dataset.id,el]));parts.forEach(p=>{const el=elementById.get(String(p.id));if(!el)return;let info='';if(p.type==='pump')info=' '+Number(p.calculatedPressureBar??p.pressureBar??2).toFixed(1)+' бар · '+Number(p.calculatedFlow??p.flowRate??5).toFixed(1)+'%/с';if(p.type==='pipe')info=' Ø'+(p.diameterMm??20)+' мм';if(p.type==='valve')info=' '+(p.openPercent??100)+'% открыт';if(p.type==='heater')info=' '+(p.targetTempC??80)+'°C';if(['cup','coffee','tank'].includes(p.type)&&p.temperatureC!=null)info=' '+Math.round(p.temperatureC)+'°C';if(['cup','coffee'].includes(p.type)&&p.pressureBar!=null)info+=' · '+Number(p.pressureBar).toFixed(1)+' бар';if(p.type==='digitalDisplay')info=' '+(p.displayText||'');if(p.type==='counter')info=' '+(p.count||0);if(['temperatureSensor','thermometer'].includes(p.type))info=' '+Math.round(p.readingC??20)+'°C';if(['pressureSensor','pressureGauge'].includes(p.type))info=' '+Number(p.readingBar??0).toFixed(2)+' бар';if(p.type==='comparator')info=' '+(p.outputState?'ВЫСОКИЙ':'НИЗКИЙ');if(info){const small=document.createElement('small');small.className='part-info';small.textContent=info;el.appendChild(small)}});queueSave()}};
 const oldVisualSVG=visualSVG;
 visualSVG=function(type,lit,label){const sh={
 led:'<circle cx="50" cy="38" r="27" fill="'+(lit?'#b8faff':'#52677c')+'" stroke="'+(lit?'#e8ffff':'#a9bbcd')+'" stroke-width="5"/><path d="M39 63v8m22-8v8" stroke="#c5d5e5" stroke-width="4"/>',
@@ -77,7 +77,7 @@ const originalRunCircuit=runCircuit;
 runCircuit=function(){
  originalRunCircuit();
  const wires=parts.filter(p=>p.type==='wire'&&(p.connections||[]).length===2);
- function group(seed,kind){const edges=parts.filter(p=>p.type===kind&&(p.connections||[]).length===2),seen=new Set([seed.id]),q=[seed];while(q.length){const c=q.shift();for(const e of edges){const ids=e.connections||[];if(ids.includes(c.id))for(const id of ids){const n=parts.find(p=>p.id===id);if(n&&!seen.has(n.id)){seen.add(n.id);q.push(n)}}}}return parts.filter(p=>seen.has(p.id))}
+ const componentCache=new Map();function group(seed,kind){let cache=componentCache.get(kind);if(!cache){const parent=new Map(),find=x=>{if(!parent.has(x))parent.set(x,x);let r=x;while(parent.get(r)!==r)r=parent.get(r);let n=x;while(parent.get(n)!==r){const next=parent.get(n);parent.set(n,r);n=next}return r},unite=(a,b)=>{const ra=find(a),rb=find(b);if(ra!==rb)parent.set(rb,ra)};for(const edge of parts){if(edge.type===kind&&(edge.connections||[]).length===2)unite(edge.connections[0],edge.connections[1])}const members=new Map();for(const part of parts){if(parent.has(part.id)){const root=find(part.id);if(!members.has(root))members.set(root,[]);members.get(root).push(part)}}cache=new Map();for(const part of parts){if(parent.has(part.id))cache.set(part.id,members.get(find(part.id)))}componentCache.set(kind,cache)}return cache.get(seed.id)||[seed]}
  for(const pump of parts.filter(p=>p.type==='pump')){const g=group(pump,'pipe'),ps=g.filter(p=>p.type==='pipe'),vs=g.filter(p=>p.type==='valve');const loss=ps.reduce((n,p)=>n+Math.pow(20/Math.max(4,p.diameterMm||20),4)*.025,0),v=vs.reduce((n,p)=>n*Math.max(.02,Math.min(1,(p.openPercent??100)/100)),1);pump.calculatedPressureBar=Math.max(0,(pump.pressureBar??2)-loss);pump.calculatedFlow=(pump.flowRate??5)*(pump.calculatedPressureBar/Math.max(.1,pump.pressureBar??2))*v}
  for(const s of parts.filter(p=>['temperatureSensor','pressureSensor','thermometer','pressureGauge'].includes(p.type))){const g=group(s,'pipe'),r=g.find(p=>['cup','coffee','tank'].includes(p.type)),pump=g.find(p=>p.type==='pump');s.readingC=r?.temperatureC??20;s.readingBar=r?.pressureBar??pump?.calculatedPressureBar??0;if(s.type==='temperatureSensor')s.active=s.readingC>=(s.threshold??50);if(s.type==='pressureSensor')s.active=s.readingBar>=(s.threshold??1)}
  for(const c of parts.filter(p=>p.type==='comparator')){const g=group(c,'wire'),s=g.find(p=>['temperatureSensor','pressureSensor','fluidSensor'].includes(p.type)),v=s?(s.type==='temperatureSensor'?s.readingC??20:s.type==='pressureSensor'?s.readingBar??0:s.active?100:0):0;c.outputState=v>=(c.threshold??50);c.active=c.outputState}
@@ -131,27 +131,20 @@ partDown=function(e,p){
  }
  previousPartDown(e,p);
 };
-function mixerPath(from,to,pipes){
- const queue=[from.id],prev=new Map([[from.id,null]]),via=new Map();
- while(queue.length){
-  const id=queue.shift();if(id===to.id)break;
-  for(const edge of pipes){
-   const ids=edge.connections||[];
-   if(ids.length!==2||!ids.includes(id))continue;
-   const next=ids[0]===id?ids[1]:ids[0];
-   if(prev.has(next))continue;
-   prev.set(next,id);via.set(next,edge);queue.push(next);
-  }
- }
+function mixerPath(from,to,pipes,adjacency){
+ if(!adjacency){adjacency=new Map();for(const edge of pipes){const ids=edge.connections||[];if(ids.length!==2)continue;for(const id of ids){if(!adjacency.has(id))adjacency.set(id,[]);adjacency.get(id).push({id:ids[0]===id?ids[1]:ids[0],edge})}}}
+ const byId=new Map(parts.map(p=>[p.id,p]));const queue=[from.id],prev=new Map([[from.id,null]]),via=new Map();
+ for(let head=0;head<queue.length;head++){const id=queue[head];if(id===to.id)break;for(const link of adjacency.get(id)||[]){if(prev.has(link.id))continue;prev.set(link.id,id);via.set(link.id,link.edge);queue.push(link.id)}}
  if(!prev.has(to.id))return null;
  const edges=[],nodes=[to];let at=to.id;
- while(at!==from.id){edges.unshift(via.get(at));at=prev.get(at);nodes.unshift(parts.find(p=>p.id===at))}
- return {edges,nodes:nodes.filter(Boolean)};
+ while(at!==from.id){edges.unshift(via.get(at));at=prev.get(at);const node=byId.get(at);if(node)nodes.unshift(node)}
+ return {edges,nodes};
 }
 const previousRunCircuit=runCircuit;
 runCircuit=function(){
  previousRunCircuit();
  const pipes=parts.filter(p=>p.type==='pipe'&&(p.connections||[]).length===2);
+ const pipeAdj=new Map();for(const edge of pipes){const ids=edge.connections||[];if(ids.length!==2)continue;for(const id of ids){if(!pipeAdj.has(id))pipeAdj.set(id,[]);pipeAdj.get(id).push({id:ids[0]===id?ids[1]:ids[0],edge})}}
  const mixers=parts.filter(p=>p.type==='mixer');
  const labels={water:'вода',syrup:'сироп',milk:'молоко',juiceBase:'концентрат сока'};
  const products={
@@ -165,7 +158,7 @@ runCircuit=function(){
   const inputTanks=parts.filter(t=>t.type==='tank'&&(t.ingredients||[]).some(k=>labels[k]));
   const candidates=inputTanks.map(t=>{
    const key=(t.ingredients||[]).find(k=>labels[k]&&(t.levels||{})[k]>0);
-   return {tank:t,key,path:mixerPath(t,mixer,pipes)};
+   return {tank:t,key,path:mixerPath(t,mixer,pipes,pipeAdj)};
   }).filter(x=>x.key&&x.path);
   let pair=null;
   for(let i=0;i<candidates.length&&!pair;i++)for(let k=i+1;k<candidates.length;k++){
@@ -174,14 +167,14 @@ runCircuit=function(){
     if(products[recipeKey]){pair=[candidates[i],candidates[k]];break}
    }
   }
-  const outputs=parts.filter(p=>p.type==='cup'||p.type==='coffee').map(p=>({part:p,path:mixerPath(mixer,p,pipes)})).filter(x=>x.path);
+  const outputs=parts.filter(p=>p.type==='cup'||p.type==='coffee').map(p=>({part:p,path:mixerPath(mixer,p,pipes,pipeAdj)})).filter(x=>x.path);
   const receiver=outputs[0]?.part,outputPath=outputs[0]?.path;
   // Each ingredient must have its own powered pump somewhere on its tank-to-mixer route.
   const pumpA=pair?.[0].path.nodes.find(p=>p.type==='pump');
   const pumpB=pair?.[1].path.nodes.find(p=>p.type==='pump');
   const pumpsReady=!!(pumpA&&pumpA.on&&pumpA.active&&pumpB&&pumpB.on&&pumpB.active);
   const pump=pumpA&&pumpB?{calculatedFlow:Math.min(Number(pumpA.calculatedFlow??pumpA.flowRate??5),Number(pumpB.calculatedFlow??pumpB.flowRate??5))}:null;
-  const valve=parts.find(p=>p.type==='valve'&&mixerPath(mixer,p,pipes));
+  const valve=parts.find(p=>p.type==='valve'&&mixerPath(mixer,p,pipes,pipeAdj));
   const ready=!!(pair&&receiver&&outputPath&&pumpsReady&&mixer.active&&(!valve||valve.on));
   if(!ready){
    mixer._mixFlowAt=0;mixer._mixLastTick=0;
@@ -227,8 +220,8 @@ const previousDrawWorld=drawWorld;
 drawWorld=function(){
  previousDrawWorld();
  if(!ready)return;
- parts.forEach(p=>{
-  const el=world.querySelector('[data-id="'+p.id+'"]');if(!el)return;
+ const elementById=new Map(Array.from(world.querySelectorAll('.part'),el=>[el.dataset.id,el]));parts.forEach(p=>{
+  const el=elementById.get(String(p.id));if(!el)return;
   const info=el.querySelector('.part-info');
   if(p.type==='mixer'){
    const small=document.createElement('small');small.className='part-info';
@@ -303,4 +296,10 @@ drawWorld=function(){
  });
 };
 
+
+// Performance: coalesce nested simulation redraws into a single scene render per tick.
+const runCircuitBeforeBatch=runCircuit;
+runCircuit=function(){let requested=false;const realDraw=drawWorld;drawWorld=function(){requested=true};try{runCircuitBeforeBatch()}finally{drawWorld=realDraw}if(requested)realDraw()};
+// A 250 ms simulation step reduces repeated graph calculations on large builds.
+$('simulate').onclick=function(){sim=!sim;const button=$('simulate');if(sim){runCircuit();simLoop=setInterval(()=>{if(sim)runCircuit()},250);if(button)button.textContent='■ Остановить'}else{if(simLoop){clearInterval(simLoop);simLoop=null}parts.forEach(p=>{p.active=false;if(p.type==='lamp')p.lit=false;p._poweredAt=0});drawWorld();if(status)status.textContent='🟦 Режим сборки · Деталей: '+parts.length;if(button)button.textContent='▶ Симуляция'}};
 })();
