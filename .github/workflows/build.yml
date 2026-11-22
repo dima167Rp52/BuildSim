@@ -3,6 +3,8 @@ name: Build BuildSim APK
 on:
   workflow_dispatch:
   push:
+    branches: [ "main", "release/0.2.0-realistic-systems" ]
+  pull_request:
     branches: [ "main" ]
 
 permissions:
@@ -23,6 +25,8 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Check simulator JavaScript
+        run: node --check app/src/main/assets/buildsim-v020.js
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
       - name: Upload APK
